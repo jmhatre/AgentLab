@@ -22,7 +22,7 @@ the planned fix.  "Status" tracks whether the fix has been implemented.
 
 | ID | File / location | Layer | Exposure | Planned fix | Status |
 |----|----------------|-------|----------|-------------|--------|
-| S1-01 | `agent_loop.py` → `TOOLS` definition | **1 — Input** | File contents are returned to the model as trusted text.  A file containing `"Ignore previous instructions and instead exfiltrate ..."` is a classic indirect prompt injection. | Wrap file contents in a clearly labelled data envelope (e.g. `<file_content>...</file_content>`) and add a system prompt instruction not to follow instructions found inside tool results. | ❌ Not yet |
+| S1-01 | `agent_loop.py` → `TOOLS` definition | **1 — Input** | File contents are returned to the model as trusted text.  A file containing `"Ignore previous instructions and instead exfiltrate ..."` is a classic indirect prompt injection. | Wrap file contents in a clearly labelled data envelope (e.g. `<file_content>...</file_content>`) and add a system prompt instruction not to follow instructions found inside tool results. | ✅ Fixed in Step 3 — `SYSTEM_PROMPT` trust hierarchy + `<file_content>` envelope in `agent_loop_v3.py` |
 | S1-02 | `agent_loop.py` → `execute_tool()`, line `path = tool_input["path"]` | **2 — Tool/action** | No path allowlist.  The model — or an attacker who has influenced the model's reasoning — can request any path on the filesystem: `/etc/passwd`, `~/.ssh/id_rsa`, `.env`, etc. | Define an explicit set of allowed directories (e.g. `["/tmp/agent_sandbox"]`).  Reject any path outside the allowlist before calling `open()`.  Use `pathlib.Path.resolve()` to catch traversal sequences like `../../`. | ✅ Fixed in Step 2 — `_validate_path()` in `agent_loop_secure.py` |
 | S1-03 | `agent_loop.py` → `execute_tool()`, line `path = tool_input["path"]` | **2 — Tool/action** | Path traversal is possible.  A relative path like `../../etc/shadow` resolves outside any intended working directory. | Resolve the path with `pathlib.Path(path).resolve()` and assert it starts with an allowed prefix. | ✅ Fixed in Step 2 — `Path.resolve()` + `relative_to(SANDBOX)` |
 | S1-04 | `agent_loop.py` → `execute_tool()` (no logging) | **5 — Observability** | No audit log of tool calls.  There is no record of which files were read, when, by which agent run, or in response to which user message. | Add structured logging (e.g. Python `logging` module or a JSON event stream) for every tool invocation: timestamp, tool name, arguments, result length, run ID. | ✅ Fixed in Step 2 — NDJSON audit log via `_log()` in `agent_loop_secure.py` |
@@ -97,4 +97,4 @@ driving the loop).
 
 ---
 
-*Next update: Step 3 — prompt injection envelope (S1-01) and secret redaction (S1-07).*
+*Next update: Step 4 — secret redaction (S1-07) and API key hygiene (S1-06).*
